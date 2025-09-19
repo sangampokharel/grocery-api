@@ -1,6 +1,7 @@
 import Vapor
 import Fluent
 import FluentPostgresDriver
+import JWT
 
 // configures your application
 public func configure(_ app: Application) async throws {
@@ -20,11 +21,14 @@ public func configure(_ app: Application) async throws {
       ), as: .psql)
 
     app.migrations.add(CreateUsersTableMigration())
+    app.migrations.add(CreateGroceryCategoryTableMigration())
     
     
     //regiter the controller
     
     try app.register(collection: UserController())
+    
+    await app.jwt.keys.add(hmac: "MY_SECRET", digestAlgorithm: .sha256)
     
     Task {
         try await app.autoMigrate()
