@@ -13,7 +13,8 @@ class GroceryController:RouteCollection, @unchecked Sendable {
     
     func boot(routes: any RoutesBuilder) throws {
         
-        let api = routes.grouped("api","users",":userId")
+        // /api/users/:userId [Protected Route]
+        let api = routes.grouped("api","users",":userId").grouped(JSONWebTokenAuthenticator())
         
         //POST: Saving GroceryCategory
         // /api/users/:userId/grocery-categories
