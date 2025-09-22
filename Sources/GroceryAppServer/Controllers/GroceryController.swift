@@ -11,11 +11,9 @@ import Fluent
 
 class GroceryController:RouteCollection, @unchecked Sendable {
     
-    
     func boot(routes: any RoutesBuilder) throws {
         
         let api = routes.grouped("api","users",":userId")
-        
         
         //POST: Saving GroceryCategory
         // /api/users/:userId/grocery-categories
@@ -33,10 +31,12 @@ class GroceryController:RouteCollection, @unchecked Sendable {
         api.post("grocery-categories", ":groceryCategoryId" ,"grocery-items", use: postGroceryItem)
         
         // get partcular categories items
-        //GET: /users/:userId/grocery-categories/:groceryCategoryId
+        //GET: /users/:userId/grocery-categories/:groceryCategoryId/grocery-items
         api.get("grocery-categories",":groceryCategoryId","grocery-items",use:getGroceryCategoriesItems)
         
-        
+        // delete groceryItems
+        //GET: /users/:userId/grocery-categories/:groceryCategoryId/grocery-items/:groceryItemId
+        api.delete("grocery-categories",":groceryCategoryId","grocery-items",":groceryItemId",use:deleteGroceryItem)
         
     }
     
@@ -145,6 +145,36 @@ class GroceryController:RouteCollection, @unchecked Sendable {
             .compactMap { GroceryItemResponseDTO(id: try $0.requireID(), title: $0.title, price: $0.price, quantity: $0.quantity)}
         
         return groceryItems
+    }
+    
+    func deleteGroceryItem(req:Request) async throws -> GroceryItemResponseDTO {
+        
+        // check all three ids
+        guard let userId = req.parameters.get("userId",as: UUID.self),
+              let groceryCategoryId = req.parameters.get("groceryCategoryId",as: UUID.self),
+              let groceryCategoryItemId = req.parameters.get("groceryItemId",as: UUID.self) else {
+            throw Abort(.notFound)
+        }
+        guard let _ = try await User.find(userId, on: req.db) else {
+            throw Abort(.notFound)
+        }
+        
+        guard let _ = try await GroceryCategory.query(on: req.db)
+            .filter(\.$user.$id == userId)
+            .filter(\.$id == groceryCategoryId)
+            .first() else {
+            
+            throw Abort(.notFound)
+        }
+        
+        guard let grocery = try await GroceryItem.query(on: req.db)
+            .filter(\.$groceryCategory.$id == groceryCategoryId)
+            .filter(\.$id == groceryCategoryItemId)
+            .first() else {
+            throw Abort(.notFound)
+        }
+        try await grocery.delete(on: req.db)
+        return GroceryItemResponseDTO(id: try grocery.requireID(), title: grocery.title, price: grocery.price, quantity: grocery.quantity)
     }
     
     
