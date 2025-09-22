@@ -22,6 +22,7 @@ public func configure(_ app: Application) async throws {
 
     app.migrations.add(CreateUsersTableMigration())
     app.migrations.add(CreateGroceryCategoryTableMigration())
+    app.migrations.add(CreateGroceryItemMigration())
     
     
     //regiter the controller

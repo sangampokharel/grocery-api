@@ -28,6 +28,16 @@ class GroceryController:RouteCollection, @unchecked Sendable {
         // /api/users/:userId/grocery-categories/:groceryId
         api.delete("grocery-categories", ":groceryCategoryId", use: deleteGroceryCategory)
         
+        // /api/users/:userId/grocery-categories/:groceryCategoryId/grocery-items
+        //POST: Create Grocery Item
+        api.post("grocery-categories", ":groceryCategoryId" ,"grocery-items", use: postGroceryItem)
+        
+        // get partcular categories items
+        //GET: /users/:userId/grocery-categories/:groceryCategoryId
+        api.get("grocery-categories",":groceryCategoryId","grocery-items",use:getGroceryCategoriesItems)
+        
+        
+        
     }
     
     func saveGroceryCategories(req:Request) async throws -> GroceryCategoryResponseDTO {
@@ -51,22 +61,19 @@ class GroceryController:RouteCollection, @unchecked Sendable {
         return try GroceryCategoryResponseDTO(id: groceryCategory.requireID(), title: groceryCategory.title, colorCode: groceryCategory.colorCode)
     }
     
-    
     func deleteGroceryCategory(req:Request) async throws -> GroceryCategoryResponseDTO {
-        
-       
         guard let userId = req.parameters.get("userId",as:UUID.self),
               let groceryId = req.parameters.get("groceryCategoryId",as:UUID.self) else {
             throw Abort(.notFound)
         }
-      
-       guard let groceryCategory = try await GroceryCategory.query(on: req.db)
+        
+        guard let groceryCategory = try await GroceryCategory.query(on: req.db)
             .filter(\.$user.$id == userId)
             .filter(\.$id == groceryId)
             .first() else {
-           
-           throw Abort(.notFound)
-       }
+            
+            throw Abort(.notFound)
+        }
         
         try await groceryCategory.delete(on: req.db)
         
@@ -89,4 +96,56 @@ class GroceryController:RouteCollection, @unchecked Sendable {
         
         return groceries
     }
+    
+    func postGroceryItem(req:Request) async throws -> GroceryItemResponseDTO {
+        // validate the req
+        try GroceryItemRequestDTO.validate(content:req)
+        
+        // decode the params
+        guard let userId = req.parameters.get("userId",as:UUID.self),
+              let groceryCategoryId = req.parameters.get("groceryCategoryId",as:UUID.self) else {
+            throw Abort(.notFound)
+        }
+        
+        // find the user
+        guard let _ = try await User.find(userId, on: req.db) else {
+            throw Abort(.notFound)
+        }
+        
+        // find the grocery category
+        guard let grocery = try await GroceryCategory.query(on: req.db)
+            .filter(\.$user.$id == userId)
+            .filter(\.$id == groceryCategoryId)
+            .first() else {
+            throw Abort(.notFound)
+        }
+        
+        // decode the body
+        let groceryItemRequestDto = try req.content.decode(GroceryItemRequestDTO.self)
+        let grocertItem = GroceryItem(title: groceryItemRequestDto.title, price: groceryItemRequestDto.price, quantity: groceryItemRequestDto.quantity, groceryCategory: try grocery.requireID())
+        
+        // save
+        try await grocertItem.save(on: req.db)
+        return GroceryItemResponseDTO(id: try grocertItem.requireID(), title: grocertItem.title, price: grocertItem.price, quantity: grocertItem.quantity)
+    }
+    
+    func getGroceryCategoriesItems(req:Request) async throws -> [GroceryItemResponseDTO] {
+        guard let userId = req.parameters.get("userId",as:UUID.self),
+              let groceryCategoryId = req.parameters.get("groceryCategoryId",as:UUID.self) else {
+            throw Abort(.notFound)
+        }
+        
+        guard let _ = try await User.find(userId, on: req.db) else {
+            throw Abort(.notFound)
+        }
+        
+        let groceryItems = try await GroceryItem.query(on: req.db)
+            .filter(\.$groceryCategory.$id == groceryCategoryId)
+            .all()
+            .compactMap { GroceryItemResponseDTO(id: try $0.requireID(), title: $0.title, price: $0.price, quantity: $0.quantity)}
+        
+        return groceryItems
+    }
+    
+    
 }
