@@ -8,12 +8,13 @@ public func configure(_ app: Application) async throws {
     // uncomment to serve files from /Public folder
     // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
 
+    let a = Environment.get("JWT_SIGN_KEY")
     let postgresConfig = SQLPostgresConfiguration(
-          hostname: "localhost",
+        hostname: Environment.get("DB_HOST_NAME") ?? "localhost",
           port: 5432,
-          username: "postgres",
-          password: "sangam",
-          database: "grocerydb", tls: .disable
+        username: Environment.get("DB_USER_NAME") ?? "username",
+        password: Environment.get("DB_PASSWORD") ?? "password",
+          database: Environment.get("DB_NAME") ?? "grocerydb", tls: .disable
       )
 
       app.databases.use(.postgres(
